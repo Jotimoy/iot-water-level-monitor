@@ -1,0 +1,45 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Arduino/IDE specific
+.ino.ide.version
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build directories
+build/
+dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+*.sublime-workspace
+*.sublime-project
+
+# Debug files
+*.log
+*.gch
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Environment files
+.env
+.env.local
+
+# Dependency files
+node_modules/
+package-lock.json
+
+# Temporary files
+*.tmp
+*.temp

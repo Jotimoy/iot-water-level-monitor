@@ -42,6 +42,82 @@ An intelligent, IoT-based water tank monitoring and automatic pump control syste
 
 *Adjust these values based on your tank dimensions and sensor placement*
 
+## 🔌 Wiring Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     ESP32 Development Board                  │
+│                                                              │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Power Section                                       │   │
+│  │  5V  ──────────────────────┬──────────────────────   │   │
+│  │  GND ──────────────────────┼──────────────────────   │   │
+│  │                            │                          │   │
+│  │  GPIO Pins:                │                          │   │
+│  │  GPIO 5  (TRIG)   ─────────┤                          │   │
+│  │  GPIO 18 (ECHO)   ─────────┤                          │   │
+│  │  GPIO 19 (PUMP)   ─────────┤                          │   │
+│  └─────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+
+     │           │           │           │
+     │           │           │           │
+     ▼           ▼           ▼           ▼
+
+┌──────────────┐ ┌──────────────────────┐ ┌──────────────────┐
+│ HC-SR04      │ │   Relay Module       │ │  12V Pump        │
+│ Ultrasonic   │ │                      │ │                  │
+│              │ │                      │ │ ┌──────────────┐  │
+│ VCC  ─────── │ │ VCC  ─────5V─────────│ │ │              │  │
+│ GND  ─────── │ │ GND  ─────GND────────│ │ │  12V Supply  │  │
+│ TRIG ─────── │ │ IN   ─────GPIO 19────│ │ │              │  │
+│ ECHO ─────── │ │                      │ │ │ Pump Motor   │  │
+│              │ │ COM ────────────────┐│ │ │              │  │
+│              │ │ NO  ───────────────┐││ │ │              │  │
+└──────────────┘ │                    │││ │ └──────────────┘  │
+                 └──────────────────────┘││                    │
+                                         ││ 12V Power Supply  │
+                                         │└────────────────────┘
+                                         │
+                                  To Pump Positive
+```
+
+### Detailed Connection Guide
+
+**HC-SR04 Ultrasonic Sensor (Water Level Detection):**
+```
+HC-SR04 Pin    →    ESP32 Pin
+─────────────       ───────────
+VCC            →    5V
+GND            →    GND
+TRIG           →    GPIO 5
+ECHO           →    GPIO 18
+                    (Use 1kΩ/2kΩ voltage divider if needed for 5V to 3.3V)
+```
+
+**Relay Module (Pump Control):**
+```
+Relay Module Pin   →    Connection
+─────────────────      ────────────
+VCC                →    5V (from ESP32)
+GND                →    GND (from ESP32)
+IN (Signal)        →    GPIO 19 (from ESP32)
+COM (Common)       →    12V Power Supply GND
+NO (Normally Open) →    12V Pump Positive Wire
+```
+
+**Power Distribution:**
+```
+12V Power Supply:
+├─ COM (Common/GND) ──→ Relay GND
+├─ Positive         ──→ Relay NO ──→ Pump Positive
+└─ Pump Negative    ──→ Pump
+
+5V Power Supply (for ESP32):
+├─ Positive ──→ ESP32 5V, HC-SR04 VCC, Relay VCC
+└─ GND      ──→ ESP32 GND, HC-SR04 GND, Relay GND
+```
+
 ## 🚀 Getting Started
 
 ### 1. Install Arduino IDE & ESP32 Board

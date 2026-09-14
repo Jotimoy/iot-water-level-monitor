@@ -15,6 +15,7 @@
 
 ## 🔧 Wiring Diagram
 
+### ASCII Reference Diagram
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                         ESP32                                │
@@ -38,6 +39,12 @@
 │                                                           │  │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Visual Wiring Diagram
+
+![ESP32 Water Level Monitor Wiring Diagram](https://github.com/Jotimoy/iot-water-level-monitor/blob/main/wiring_diagram.png?raw=true)
+
+*The diagram shows the complete connection between ESP32, HC-SR04 ultrasonic sensor, relay module, and pump power supply.*
 
 ## 🔌 Step-by-Step Wiring Instructions
 

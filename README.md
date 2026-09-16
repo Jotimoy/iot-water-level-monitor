@@ -1,278 +1,91 @@
-# IoT Water Level Monitor & Control System
+# IoT Water Level Monitor & Automatic Pump Controller
 
-An intelligent, IoT-based water tank monitoring and automatic pump control system using ESP32, ultrasonic sensors, and a responsive web interface.
+An ESP32-based water-tank monitor with an ultrasonic sensor, an active-low relay, and a responsive browser dashboard. The ESP32 creates its own Wi-Fi access point, so no router or cloud service is required.
 
-## 🌟 Features
+## Improvements in the current version
 
-- **Real-time Water Level Monitoring**: Ultrasonic sensor measures distance to water surface
-- **Automatic Pump Control**: Auto-fill mode with configurable thresholds
-- **Manual Override**: Switch between automatic and manual control modes
-- **Web-based Dashboard**: Access from any browser on the same WiFi network
-- **WiFi Access Point**: ESP32 creates its own WiFi network for easy connectivity
-- **Live Updates**: Real-time data refresh every 2 seconds
-- **Simple & Reliable**: Minimal dependencies, easy to deploy
+- Displays **water level percentage** as well as sensor distance.
+- Uses non-blocking `millis()` scheduling for regular sensor reads and web requests.
+- Rejects missing or out-of-range ultrasonic readings instead of starting the pump on bad data.
+- Uses separate start/stop thresholds (20% and 90%) to prevent rapid relay switching.
+- Forces the pump to a safe OFF state at startup and when switching back to automatic mode.
+- Provides a JSON status endpoint at `/api/status` and a mobile-friendly dashboard.
+- Keeps manual pump controls disabled while automatic mode is active.
 
-## 📋 System Requirements
+## Hardware
 
-### Hardware
-- **ESP32 Development Board** (e.g., ESP32-WROOM-32)
-- **HC-SR04 Ultrasonic Sensor** (water level detection)
-- **12V Pump with Relay Module** (or any 5V-controlled pump)
-- **Power Supply** (5V for ESP32, 12V for pump)
-- **Connecting Wires & Breadboard**
-- **USB Cable** (for programming)
+- ESP32 development board
+- HC-SR04 ultrasonic sensor (use a voltage divider on ECHO; ESP32 GPIO is 3.3 V)
+- Active-low 5 V relay module
+- Pump and an appropriate, isolated power supply
 
-### Software
-- Arduino IDE 1.8.0+
-- ESP32 Board Package (installed via Arduino Board Manager)
-- Built-in WiFi and WebServer libraries (included with ESP32 core)
+> **Safety:** Never power a pump directly from an ESP32 GPIO. Use a correctly rated relay or motor driver, a common ground where required by the relay module, fusing, and proper electrical isolation. Mains-voltage wiring must be performed by a qualified person.
 
-## 🔌 Pin Configuration
+## Pin configuration
 
-| Component | GPIO Pin | Description |
-|-----------|----------|-------------|
-| Ultrasonic TRIG | GPIO 5 | Trigger pulse for distance measurement |
-| Ultrasonic ECHO | GPIO 18 | Echo pulse from sensor |
-| Pump Relay | GPIO 19 | Control signal for pump (HIGH = ON, LOW = OFF) |
+| Component | ESP32 pin | Notes |
+|---|---:|---|
+| Ultrasonic TRIG | GPIO 5 | Output |
+| Ultrasonic ECHO | GPIO 18 | Input; step down 5 V ECHO to 3.3 V |
+| Relay IN | GPIO 23 | Active-low by default |
 
-## 📐 Water Level Thresholds
+Connect sensor GND and relay GND to ESP32 GND. Connect the pump through the relay's correctly rated COM/NO terminals and use a separate pump supply.
 
-- **TANK_FULL_CM**: 10 cm - Pump turns OFF when water is 10cm from sensor
-- **TANK_EMPTY_CM**: 40 cm - Pump turns ON when water is 40cm from sensor
+## Calibration and control
 
-*Adjust these values based on your tank dimensions and sensor placement*
-
-## 🔌 Wiring Diagram
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     ESP32 Development Board                  │
-│                                                              │
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │  Power Section                                       │   │
-│  │  5V  ──────────────────────┬──────────────────────   │   │
-│  │  GND ──────────────────────┼──────────────────────   │   │
-│  │                            │                          │   │
-│  │  GPIO Pins:                │                          │   │
-│  │  GPIO 5  (TRIG)   ─────────┤                          │   │
-│  │  GPIO 18 (ECHO)   ─────────┤                          │   │
-│  │  GPIO 19 (PUMP)   ─────────┤                          │   │
-│  └─────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────┘
-
-     │           │           │           │
-     │           │           │           │
-     ▼           ▼           ▼           ▼
-
-┌──────────────┐ ┌──────────────────────┐ ┌──────────────────┐
-│ HC-SR04      │ │   Relay Module       │ │  12V Pump        │
-│ Ultrasonic   │ │                      │ │                  │
-│              │ │                      │ │ ┌──────────────┐  │
-│ VCC  ─────── │ │ VCC  ─────5V─────────│ │ │              │  │
-│ GND  ─────── │ │ GND  ─────GND────────│ │ │  12V Supply  │  │
-│ TRIG ─────── │ │ IN   ─────GPIO 19────│ │ │              │  │
-│ ECHO ─────── │ │                      │ │ │ Pump Motor   │  │
-│              │ │ COM ────────────────┐│ │ │              │  │
-│              │ │ NO  ───────────────┐││ │ │              │  │
-└──────────────┘ │                    │││ │ └──────────────┘  │
-                 └──────────────────────┘││                    │
-                                         ││ 12V Power Supply  │
-                                         │└────────────────────┘
-                                         │
-                                  To Pump Positive
-```
-
-### Detailed Connection Guide
-
-**HC-SR04 Ultrasonic Sensor (Water Level Detection):**
-```
-HC-SR04 Pin    →    ESP32 Pin
-─────────────       ───────────
-VCC            →    5V
-GND            →    GND
-TRIG           →    GPIO 5
-ECHO           →    GPIO 18
-                    (Use 1kΩ/2kΩ voltage divider if needed for 5V to 3.3V)
-```
-
-**Relay Module (Pump Control):**
-```
-Relay Module Pin   →    Connection
-─────────────────      ────────────
-VCC                →    5V (from ESP32)
-GND                →    GND (from ESP32)
-IN (Signal)        →    GPIO 19 (from ESP32)
-COM (Common)       →    12V Power Supply GND
-NO (Normally Open) →    12V Pump Positive Wire
-```
-
-**Power Distribution:**
-```
-12V Power Supply:
-├─ COM (Common/GND) ──→ Relay GND
-├─ Positive         ──→ Relay NO ──→ Pump Positive
-└─ Pump Negative    ──→ Pump
-
-5V Power Supply (for ESP32):
-├─ Positive ──→ ESP32 5V, HC-SR04 VCC, Relay VCC
-└─ GND      ──→ ESP32 GND, HC-SR04 GND, Relay GND
-```
-
-## 🚀 Getting Started
-
-### 1. Install Arduino IDE & ESP32 Board
-
-1. Download [Arduino IDE](https://www.arduino.cc/en/software)
-2. Open Arduino IDE → File → Preferences
-3. Add this URL to "Additional Board Manager URLs":
-   ```
-   https://dl.espressif.com/dl/package_esp32_index.json
-   ```
-4. Go to Tools → Board Manager → Search "esp32" → Install by Espressif Systems
-
-### 2. Hardware Setup
-
-**Ultrasonic Sensor Wiring:**
-```
-HC-SR04 VCC  → ESP32 5V
-HC-SR04 GND  → ESP32 GND
-HC-SR04 TRIG → ESP32 GPIO 5
-HC-SR04 ECHO → ESP32 GPIO 18 (via voltage divider if needed)
-```
-
-**Pump Control Wiring:**
-```
-Relay Module IN  → ESP32 GPIO 19
-Relay Module VCC → ESP32 5V
-Relay Module GND → ESP32 GND
-Relay Pump OUT  → 12V Pump
-```
-
-### 3. Upload Code
-
-1. Open `water_level_monitor.ino` in Arduino IDE
-2. Select **Tools → Board → ESP32 Dev Module**
-3. Select correct **COM Port**
-4. Click Upload
-5. Open Serial Monitor (Baud: 115200) to see connection details
-
-### 4. Connect & Access
-
-1. Once uploaded, the ESP32 creates a WiFi network:
-   - **SSID**: `WaterSystem_ESP32`
-   - **Password**: `password123`
-2. Connect your phone/computer to this network
-3. Open browser and navigate to: `192.168.4.1`
-4. You should see the Water Pump Control dashboard
-
-## 🎮 Web Interface Guide
-
-### Dashboard Components
-
-**Water Level Display**: Shows current distance in centimeters from sensor to water surface
-
-**Pump Status**: Displays if pump is ON or OFF
-
-**Mode Display**: Shows current operating mode (AUTO or MANUAL)
-
-### Controls
-
-- **Toggle Auto/Manual Mode**: Switch between automatic and manual operation
-  - **AUTO**: Pump follows the threshold logic automatically
-  - **MANUAL**: You control pump with ON/OFF buttons
-
-- **Turn Pump ON**: Manually activate pump (only works in MANUAL mode)
-- **Turn Pump OFF**: Manually deactivate pump (only works in MANUAL mode)
-
-## ⚙️ How It Works
-
-### Auto Mode Logic
-
-```
-If (distance >= 40cm) AND (pump is OFF)
-  → Turn pump ON (tank is low)
-
-If (distance <= 10cm) AND (pump is ON)
-  → Turn pump OFF (tank is full)
-```
-
-### Sensor Reading
-
-1. ESP32 sends a 10µs pulse to TRIG pin
-2. Ultrasonic sensor emits sound wave
-3. ECHO pin receives reflected signal
-4. Time difference calculates distance: `distance = duration × 0.034 / 2`
-5. Reading updates every 100ms
-
-### Web Server Communication
-
-- **GET /**: Serves the HTML dashboard
-- **GET /data**: Returns JSON with current sensor & pump status
-- **GET /pump?state=on/off**: Controls pump (manual mode only)
-- **GET /mode**: Toggles between AUTO and MANUAL modes
-
-## 🔧 Configuration
-
-Edit these constants in the code to customize:
+Edit the constants near the top of `water_level_monitor.ino`:
 
 ```cpp
-// WiFi Credentials
-const char* ssid = "WaterSystem_ESP32";
-const char* password = "password123";
-
-// Water Level Thresholds (in cm)
-const int TANK_FULL_CM = 10;   // Adjust based on tank height
-const int TANK_EMPTY_CM = 40;  // Adjust based on tank height
+constexpr float TANK_DEPTH_CM = 100.0f;
+constexpr float FULL_LEVEL_DISTANCE_CM = 10.0f;
+constexpr float PUMP_START_LEVEL = 20.0f;
+constexpr float PUMP_STOP_LEVEL = 90.0f;
 ```
 
-## 🐛 Troubleshooting
+- `TANK_DEPTH_CM`: distance from the sensor to the tank bottom when empty.
+- `FULL_LEVEL_DISTANCE_CM`: distance from the sensor to the water at the desired full level.
+- The pump starts at or below 20% and stops at or above 90%.
+- Change `RELAY_ACTIVE_LOW` to `false` for an active-high relay module.
 
-| Issue | Solution |
-|-------|----------|
-| Can't connect to WiFi | Check SSID/password, restart ESP32 |
-| No distance reading (999 cm) | Check ultrasonic sensor wiring, test TRIG/ECHO pins |
-| Pump doesn't respond | Verify GPIO 19 is connected, check relay module |
-| Web page won't load | Ensure you're on the same WiFi network, try 192.168.4.1 |
-| Distance readings fluctuate | Normal behavior; use averaging in code if needed |
+The level formula maps the empty distance to 0% and the configured full distance to 100%.
 
-## 📊 Serial Monitor Output
+## Upload and use
 
-Example output at startup:
+1. Install Arduino IDE and the ESP32 board package by Espressif.
+2. Open `water_level_monitor.ino`.
+3. Select **ESP32 Dev Module**, the correct port, and upload.
+4. Open Serial Monitor at **115200 baud**.
+5. Connect a phone or computer to:
+   - SSID: `Water_Controller`
+   - Password: `12345678`
+6. Open `http://192.168.4.1` in a browser.
+
+Change the default access-point password before using the device in a real installation.
+
+## Web API
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/` | GET | Dashboard |
+| `/api/status` | GET | JSON sensor, level, mode, and pump state |
+| `/api/mode` | GET | Toggle automatic/manual mode |
+| `/api/pump?state=on` | GET | Turn on in manual mode |
+| `/api/pump?state=off` | GET | Turn off in manual mode |
+
+Example status response:
+
+```json
+{"valid":true,"distance":46.2,"level":59.8,"pump":false,"auto":true}
 ```
-Starting Access Point...
-Connect to Wi-Fi: WaterSystem_ESP32
-IP Address to visit in browser: 192.168.4.1
-```
 
-## 🔐 Security Notes
+## Troubleshooting
 
-- Change default WiFi password in code
-- The web interface has no authentication (add if needed for production)
-- WiFi password should be minimum 8 characters
-- Consider using WiFi Manager library for easier configuration in production
+- **Dashboard unavailable:** reconnect to the ESP32 access point and browse to `192.168.4.1`.
+- **Sensor reading unavailable:** check TRIG/ECHO wiring, common ground, sensor alignment, and the ECHO voltage divider.
+- **Pump logic is reversed:** verify the relay type and change `RELAY_ACTIVE_LOW`.
+- **Level is inaccurate:** measure the empty and full distances and update the calibration constants.
+- **Relay chatters:** verify the start/stop thresholds are sufficiently separated and that the sensor is not aimed at turbulence.
 
-## 🚀 Future Enhancements
+## License
 
-- [ ] Data logging to SD card or cloud database
-- [ ] Mobile app integration
-- [ ] Email/SMS alerts for tank status
-- [ ] Multiple sensor support for large tanks
-- [ ] MQTT integration for smart home systems
-- [ ] Historical data graphs and analytics
-- [ ] Low-power sleep modes for battery operation
-
-## 📝 License
-
-This project is open-source. Feel free to modify and use for personal or commercial projects.
-
-## 🤝 Contributing
-
-Contributions are welcome! Please submit issues or pull requests for improvements.
-
-## 📧 Support
-
-For questions or issues, create an issue on the GitHub repository.
-
----
-
-**Happy Water Monitoring! 💧**
+Open-source project. Modify and use it for personal or commercial projects at your own risk.
